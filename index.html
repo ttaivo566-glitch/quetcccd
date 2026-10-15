@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quét QR CCCD Siêu Nhạy</title>
-    <!-- Thư viện jsQR xử lý nhận diện QR trực tiếp siêu nhạy -->
+    <!-- Thư viện jsQR xử lý nhận diện QR trực tiếp -->
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
         * { box-sizing: border-box; }
@@ -16,7 +16,7 @@
             margin: 0; 
         }
         .container {
-            max-width: 420px;
+            max-width: 400px;
             margin: 0 auto;
             background: #ffffff;
             padding: 15px;
@@ -26,34 +26,36 @@
         h2 { color: #0275d8; margin: 0 0 5px 0; font-size: 18px; }
         p.subtitle { font-size: 12px; color: #666; margin-bottom: 12px; }
         
+        /* Cấu hình Khung Camera hình vuông chuẩn (1:1) */
         .camera-wrapper {
             position: relative;
             width: 100%;
-            border-radius: 10px;
+            padding-top: 100%; /* Tạo tỉ lệ 1:1 vuông vức */
+            border-radius: 12px;
             overflow: hidden;
             background: #000;
         }
         video {
-            width: 100%;
-            height: auto;
-            display: block;
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            object-fit: cover; /* Phủ kín khung hình vuông */
         }
         canvas { display: none; }
 
-        /* Khung căn chỉnh QR */
+        /* Khung căn chỉnh QR hình vuông */
         .scan-guide-box {
             position: absolute;
             top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 70%;
-            height: 70%;
+            width: 75%; height: 75%;
             border: 2px dashed #0275d8;
             border-radius: 8px;
             pointer-events: none;
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
         }
 
-        /* Dòng thông báo hướng dẫn / đề xuất */
+        /* Dòng thông báo gợi ý điều chỉnh */
         .feedback-banner {
             margin-top: 10px;
             padding: 8px 12px;
@@ -70,54 +72,84 @@
         .feedback-banner.warning { background: #fff3cd; color: #856404; }
         .feedback-banner.success { background: #d4edda; color: #155724; }
 
-        /* Nút bấm tạm dừng */
-        .btn-controls {
-            margin-top: 12px;
-        }
-        .btn {
+        /* Nút tạm dừng */
+        .btn-controls { margin-top: 10px; }
+        .btn-pause {
             background: #6c757d;
             color: white;
             border: none;
-            padding: 10px 20px;
+            padding: 10px;
             font-size: 14px;
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
             width: 100%;
-            transition: background 0.2s;
         }
-        .btn.paused { background: #0275d8; }
+        .btn-pause.paused { background: #0275d8; }
 
-        /* Modal thông báo kết quả */
+        /* Modal hiển thị 3 Tùy Chọn sau khi quét */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.75);
+            background: rgba(0, 0, 0, 0.8);
             display: none;
             justify-content: center;
             align-items: center;
             z-index: 9999;
-            padding: 20px;
+            padding: 15px;
         }
         .modal-box {
             background: #fff;
-            padding: 22px 18px;
+            padding: 20px 15px;
             border-radius: 14px;
             width: 100%;
-            max-width: 320px;
+            max-width: 330px;
             text-align: center;
         }
-        .icon-success { font-size: 44px; color: #28a745; margin-bottom: 5px; }
-        .cccd-number { font-size: 20px; font-weight: bold; color: #d9534f; margin: 6px 0; letter-spacing: 1px; }
+        .icon-success { font-size: 40px; color: #28a745; margin-bottom: 2px; }
+        .cccd-number { font-size: 20px; font-weight: bold; color: #d9534f; margin: 4px 0; letter-spacing: 1px; }
         .full-name { font-size: 15px; font-weight: bold; color: #333; }
-        .alert-text { font-size: 12px; color: #28a745; background: #e8f8ed; padding: 8px; border-radius: 6px; margin-top: 10px; }
+        
+        .alert-copy {
+            font-size: 12px;
+            color: #155724;
+            background: #d4edda;
+            padding: 6px;
+            border-radius: 6px;
+            margin: 10px 0 15px 0;
+            font-weight: 500;
+        }
+
+        /* Đội hình 3 Nút lựa chọn */
+        .action-btns {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .btn-action {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn-medinet { background: #0275d8; }
+        .btn-bhyt { background: #17a2b8; }
+        .btn-retry { background: #6c757d; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>⚡ Quét CCCD Siêu Nhạy</h2>
-        <p class="subtitle">Đưa mã QR CCCD vào giữa khung nét đứt</p>
+        <h2>⚡ Quét CCCD Tra Cứu</h2>
+        <p class="subtitle">Đưa mã QR CCCD vào giữa khung vuông</p>
         
         <div class="camera-wrapper">
             <video id="video" playsinline></video>
@@ -126,27 +158,37 @@
 
         <canvas id="canvas"></canvas>
 
-        <!-- Thanh thông báo gợi ý điều chỉnh camera -->
+        <!-- Thanh thông báo gợi ý -->
         <div class="feedback-banner" id="feedback">Đang khởi động camera...</div>
 
-        <!-- Nút tạm dừng quét -->
+        <!-- Nút Tạm dừng -->
         <div class="btn-controls">
-            <button class="btn" id="pauseBtn" onclick="togglePause()">⏸️ Tạm dừng Quét</button>
+            <button class="btn-pause" id="pauseBtn" onclick="togglePause()">⏸️ Tạm dừng Quét</button>
         </div>
     </div>
 
-    <!-- Màn hình thông báo quét thành công -->
+    <!-- Modal hiển thị kết quả & 3 Tùy Chọn -->
     <div class="modal-overlay" id="successModal">
         <div class="modal-box">
             <div class="icon-success">✓</div>
-            <h3 style="margin: 0 0 8px 0; color: #333;">QUÉT THÀNH CÔNG!</h3>
+            <h3 style="margin: 0; color: #333;">QUÉT THÀNH CÔNG!</h3>
             <div class="full-name" id="dispName">---</div>
-            <div style="font-size: 12px; color: #777; margin-top: 4px;">Số CCCD:</div>
+            <div style="font-size: 12px; color: #777; margin-top: 2px;">Số CCCD:</div>
             <div class="cccd-number" id="dispCCCD">------------</div>
             
-            <div class="alert-text">
-                📋 Đã tự động copy số CCCD!<br>
-                ⏳ Tự đóng trang sau <strong><span id="countdown">2</span>s</strong>...
+            <div class="alert-copy">📋 Đã tự động copy số CCCD!</div>
+
+            <!-- 3 Nút Tùy Chọn -->
+            <div class="action-btns">
+                <button class="btn-action btn-medinet" onclick="goMedinet()">
+                    🔍 1. Tra cứu nhanh (Medinet)
+                </button>
+                <button class="btn-action btn-bhyt" onclick="goBHYT()">
+                    🏥 2. Tra cứu mã BHYT
+                </button>
+                <button class="btn-action btn-retry" onclick="resetScanner()">
+                    🔄 3. Thử lại (Quét mã khác)
+                </button>
             </div>
         </div>
     </div>
@@ -161,9 +203,8 @@
         let isPaused = false;
         let isScanned = false;
         let stream = null;
-        let scanFrameId = null;
 
-        // Bắt đầu mở camera với độ phân giải cao Full HD (1080p) để tăng độ rõ nét mã QR
+        // Bật camera Full HD
         async function startCamera() {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
@@ -207,10 +248,10 @@
 
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
                 
-                // 1. Phân tích độ sáng & Đưa ra gợi ý (Gợi ý camera)
+                // Phân tích độ sáng
                 analyzeFrame(imageData);
 
-                // 2. Nhận diện mã QR sử dụng jsQR
+                // Nhận diện QR bằng jsQR
                 const code = jsQR(imageData.data, imageData.width, imageData.height, {
                     inversionAttempts: "dontInvert",
                 });
@@ -220,93 +261,78 @@
                 }
             }
 
-            scanFrameId = requestAnimationFrame(tick);
+            requestAnimationFrame(tick);
         }
 
-        // Hàm phân tích độ sáng và vị trí để gợi ý người dùng
         function analyzeFrame(imageData) {
             const data = imageData.data;
-            let length = data.length;
             let colorSum = 0;
-
-            // Lấy mẫu điểm ảnh để tính độ sáng trung bình
-            for (let i = 0; i < length; i += 32) {
+            for (let i = 0; i < data.length; i += 32) {
                 colorSum += (data[i] + data[i+1] + data[i+2]) / 3;
             }
-            const brightness = Math.floor(colorSum / (length / 32));
+            const brightness = Math.floor(colorSum / (data.length / 32));
 
             if (brightness < 50) {
                 feedback.className = "feedback-banner warning";
-                feedback.innerText = "💡 Môi trường hơi tối! Hãy di chuyển ra chỗ sáng hơn";
+                feedback.innerText = "💡 Môi trường hơi tối! Di chuyển ra chỗ sáng hơn";
             } else if (brightness > 220) {
                 feedback.className = "feedback-banner warning";
-                feedback.innerText = "☀️ Ảnh bị chói sáng! Hãy nghiêng góc máy một chút";
+                feedback.innerText = "☀️ Ảnh chói sáng! Nghiêng nhẹ góc camera";
             } else {
                 feedback.className = "feedback-banner";
-                feedback.innerText = "🎯 Giữ yên máy & điều chỉnh khoảng cách thích hợp";
+                feedback.innerText = "🎯 Giữ yên máy & điều chỉnh khoảng cách";
             }
         }
 
-        // Xử lý khi tìm thấy mã QR CCCD
         function onCodeDetected(qrText, location) {
-            // Kiểm tra xem QR có đúng cỡ trong vùng căn chỉnh không
             if (location) {
                 const qrWidth = Math.hypot(location.topRightCorner.x - location.topLeftCorner.x, location.topRightCorner.y - location.topLeftCorner.y);
                 const boxRatio = qrWidth / canvas.width;
 
-                if (boxRatio < 0.15) {
+                if (boxRatio < 0.12) {
                     feedback.className = "feedback-banner warning";
-                    feedback.innerText = "🔍 Đưa camera LẠI GẦN thẻ hơn chút nữa";
+                    feedback.innerText = "🔍 Đưa camera LẠI GẦN thẻ hơn";
                     return;
-                } else if (boxRatio > 0.7) {
+                } else if (boxRatio > 0.75) {
                     feedback.className = "feedback-banner warning";
                     feedback.innerText = "↔️ LÙI CAMERA RA XA một chút";
                     return;
                 }
             }
 
-            // Tách thông tin CCCD (Cấu trúc: SốCCCD|...|HọTên|...)
             const parts = qrText.split('|');
             if (parts.length >= 1 && parts[0].length >= 9) {
                 isScanned = true;
                 const cccd = parts[0].trim();
                 const fullName = parts.length >= 3 ? parts[2].trim() : '';
 
-                feedback.className = "feedback-banner success";
-                feedback.innerText = "✓ Đã tìm thấy mã QR!";
-
-                // Tự động Copy số CCCD vào Bộ nhớ tạm
+                // Copy số CCCD tự động
                 navigator.clipboard.writeText(cccd).then(() => {
                     if (navigator.vibrate) navigator.vibrate(200);
 
                     document.getElementById('dispCCCD').innerText = cccd;
                     document.getElementById('dispName').innerText = fullName;
                     document.getElementById('successModal').style.display = 'flex';
-
-                    // Đếm ngược 2s và tự đóng trang
-                    let timeLeft = 2;
-                    const timer = setInterval(() => {
-                        timeLeft--;
-                        document.getElementById('countdown').innerText = timeLeft;
-                        if (timeLeft <= 0) {
-                            clearInterval(timer);
-                            closeWindow();
-                        }
-                    }, 1000);
                 });
             }
         }
 
-        function closeWindow() {
-            window.close();
-            setTimeout(() => {
-                document.body.innerHTML = `
-                    <div style="padding: 40px 20px; font-family: sans-serif; text-align: center;">
-                        <h2 style="color: #28a745;">✓ Đã lưu số CCCD thành công!</h2>
-                        <p style="font-size: 15px;">Vui lòng quay lại tab <strong>Medinet</strong> và chọn <strong>Dán (Paste)</strong>.</p>
-                    </div>
-                `;
-            }, 300);
+        // Tùy chọn 1: Chuyển sang link Medinet
+        function goMedinet() {
+            window.location.href = "https://quanlyskcd.medinet.org.vn/app/main/dynamicreport/report/viewer-utility/KSKNCT_KiemTraNhanh_M11";
+        }
+
+        // Tùy chọn 2: Chuyển sang link Tra cứu BHYT
+        function goBHYT() {
+            window.location.href = "https://baohiemxahoi.gov.vn/tracuu/Pages/tra-cuu-thoi-han-su-dung-the-bhyt.aspx";
+        }
+
+        // Tùy chọn 3: Thử lại / Quét mã khác
+        function resetScanner() {
+            document.getElementById('successModal').style.display = 'none';
+            isScanned = false;
+            feedback.className = "feedback-banner";
+            feedback.innerText = "Đang tìm mã QR...";
         }
 
         window.addEventListener('DOMContentLoaded', startCamera);
