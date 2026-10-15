@@ -349,10 +349,8 @@
                     scannedData.dob = rawDob;
                 }
 
-                // Mặc định copy sẵn số CCCD vào bộ nhớ tạm
+                // Copy sẵn số CCCD vào bộ nhớ tạm (không rung)
                 navigator.clipboard.writeText(scannedData.cccd).then(() => {
-                    if (navigator.vibrate) navigator.vibrate(200);
-
                     document.getElementById('valCCCD').innerText = scannedData.cccd;
                     document.getElementById('valName').innerText = scannedData.name;
                     document.getElementById('valDOB').innerText = scannedData.dob;
@@ -361,11 +359,10 @@
             }
         }
 
-        // Hàm copy từng trường riêng biệt khi bấm nút
+        // Hàm copy từng trường riêng biệt (không rung)
         function copyField(elementId, btnElement) {
             const textToCopy = document.getElementById(elementId).innerText;
             navigator.clipboard.writeText(textToCopy).then(() => {
-                if (navigator.vibrate) navigator.vibrate(100);
                 const originalText = btnElement.innerText;
                 btnElement.innerText = "✓ Đã chép";
                 btnElement.style.color = "#28a745";
