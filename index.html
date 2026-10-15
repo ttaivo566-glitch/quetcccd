@@ -26,11 +26,11 @@
         h2 { color: #0275d8; margin: 0 0 5px 0; font-size: 18px; }
         p.subtitle { font-size: 12px; color: #666; margin-bottom: 12px; }
         
-        /* Cấu hình Khung Camera hình vuông chuẩn (1:1) */
+        /* Khung Camera hình vuông (1:1) */
         .camera-wrapper {
             position: relative;
             width: 100%;
-            padding-top: 100%; /* Tạo tỉ lệ 1:1 vuông vức */
+            padding-top: 100%;
             border-radius: 12px;
             overflow: hidden;
             background: #000;
@@ -39,11 +39,11 @@
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            object-fit: cover; /* Phủ kín khung hình vuông */
+            object-fit: cover;
         }
         canvas { display: none; }
 
-        /* Khung căn chỉnh QR hình vuông */
+        /* Khung căn chỉnh QR */
         .scan-guide-box {
             position: absolute;
             top: 50%; left: 50%;
@@ -55,7 +55,7 @@
             box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
         }
 
-        /* Dòng thông báo gợi ý điều chỉnh */
+        /* Thanh thông báo gợi ý */
         .feedback-banner {
             margin-top: 10px;
             padding: 8px 12px;
@@ -72,7 +72,7 @@
         .feedback-banner.warning { background: #fff3cd; color: #856404; }
         .feedback-banner.success { background: #d4edda; color: #155724; }
 
-        /* Nút tạm dừng */
+        /* Nút Tạm dừng */
         .btn-controls { margin-top: 10px; }
         .btn-pause {
             background: #6c757d;
@@ -87,7 +87,7 @@
         }
         .btn-pause.paused { background: #0275d8; }
 
-        /* Modal hiển thị 3 Tùy Chọn sau khi quét */
+        /* Modal hiển thị kết quả & các nút thao tác */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -100,37 +100,54 @@
         }
         .modal-box {
             background: #fff;
-            padding: 20px 15px;
+            padding: 18px 15px;
             border-radius: 14px;
             width: 100%;
-            max-width: 330px;
+            max-width: 340px;
             text-align: center;
         }
-        .icon-success { font-size: 40px; color: #28a745; margin-bottom: 2px; }
-        .cccd-number { font-size: 20px; font-weight: bold; color: #d9534f; margin: 4px 0; letter-spacing: 1px; }
-        .full-name { font-size: 15px; font-weight: bold; color: #333; }
+        .icon-success { font-size: 36px; color: #28a745; margin-bottom: 2px; }
         
-        .alert-copy {
-            font-size: 12px;
-            color: #155724;
-            background: #d4edda;
-            padding: 6px;
-            border-radius: 6px;
-            margin: 10px 0 15px 0;
-            font-weight: 500;
+        /* Khối hiển thị thông tin từng trường kèm nút copy riêng */
+        .info-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            padding: 8px 10px;
+            border-radius: 8px;
+            margin: 6px 0;
+            text-align: left;
         }
+        .info-label { font-size: 11px; color: #666; display: block; }
+        .info-value { font-size: 14px; font-weight: bold; color: #333; word-break: break-all; }
+        .btn-copy-field {
+            background: #e2e8f0;
+            border: none;
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #0275d8;
+            cursor: pointer;
+            white-space: nowrap;
+            margin-left: 8px;
+        }
+        .btn-copy-field:active { background: #cbd5e1; }
 
-        /* Đội hình 3 Nút lựa chọn */
+        /* Nhóm nút chuyển trang lớn */
         .action-btns {
             display: flex;
             flex-direction: column;
             gap: 8px;
+            margin-top: 12px;
         }
         .btn-action {
-            padding: 12px;
+            padding: 11px;
             border: none;
             border-radius: 8px;
-            font-size: 14px;
+            font-size: 13px;
             font-weight: bold;
             color: white;
             cursor: pointer;
@@ -148,7 +165,7 @@
 <body>
 
     <div class="container">
-        <h2>⚡ Quét CCCD Tra Cứu</h2>
+        <h2>⚡ Quét CCCD Siêu Nhạy</h2>
         <p class="subtitle">Đưa mã QR CCCD vào giữa khung vuông</p>
         
         <div class="camera-wrapper">
@@ -158,36 +175,56 @@
 
         <canvas id="canvas"></canvas>
 
-        <!-- Thanh thông báo gợi ý -->
         <div class="feedback-banner" id="feedback">Đang khởi động camera...</div>
 
-        <!-- Nút Tạm dừng -->
         <div class="btn-controls">
             <button class="btn-pause" id="pauseBtn" onclick="togglePause()">⏸️ Tạm dừng Quét</button>
         </div>
     </div>
 
-    <!-- Modal hiển thị kết quả & 3 Tùy Chọn -->
+    <!-- Modal hiển thị kết quả -->
     <div class="modal-overlay" id="successModal">
         <div class="modal-box">
             <div class="icon-success">✓</div>
-            <h3 style="margin: 0; color: #333;">QUÉT THÀNH CÔNG!</h3>
-            <div class="full-name" id="dispName">---</div>
-            <div style="font-size: 12px; color: #777; margin-top: 2px;">Số CCCD:</div>
-            <div class="cccd-number" id="dispCCCD">------------</div>
+            <h3 style="margin: 0 0 10px 0; color: #333; font-size: 16px;">QUÉT THÀNH CÔNG!</h3>
             
-            <div class="alert-copy">📋 Đã tự động copy số CCCD!</div>
+            <!-- Trường 1: CCCD -->
+            <div class="info-row">
+                <div>
+                    <span class="info-label">Số CCCD</span>
+                    <span class="info-value" id="valCCCD">---</span>
+                </div>
+                <button class="btn-copy-field" onclick="copyField('valCCCD', this)">📋 Copy</button>
+            </div>
 
-            <!-- 3 Nút Tùy Chọn -->
+            <!-- Trường 2: Họ tên -->
+            <div class="info-row">
+                <div>
+                    <span class="info-label">Họ và tên</span>
+                    <span class="info-value" id="valName">---</span>
+                </div>
+                <button class="btn-copy-field" onclick="copyField('valName', this)">📋 Copy</button>
+            </div>
+
+            <!-- Trường 3: Ngày sinh -->
+            <div class="info-row">
+                <div>
+                    <span class="info-label">Ngày sinh</span>
+                    <span class="info-value" id="valDOB">---</span>
+                </div>
+                <button class="btn-copy-field" onclick="copyField('valDOB', this)">📋 Copy</button>
+            </div>
+
+            <!-- 3 Nút Chức Năng Chính -->
             <div class="action-btns">
                 <button class="btn-action btn-medinet" onclick="goMedinet()">
                     🔍 1. Tra cứu nhanh (Medinet)
                 </button>
                 <button class="btn-action btn-bhyt" onclick="goBHYT()">
-                    🏥 2. Tra cứu mã BHYT
+                    🏥 2. Mở trang Tra cứu BHYT
                 </button>
                 <button class="btn-action btn-retry" onclick="resetScanner()">
-                    🔄 3. Thử lại (Quét mã khác)
+                    🔄 3. Quét người tiếp theo
                 </button>
             </div>
         </div>
@@ -204,7 +241,8 @@
         let isScanned = false;
         let stream = null;
 
-        // Bật camera Full HD
+        let scannedData = { cccd: "", name: "", dob: "" };
+
         async function startCamera() {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
@@ -247,11 +285,8 @@
                 ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
                 const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                
-                // Phân tích độ sáng
                 analyzeFrame(imageData);
 
-                // Nhận diện QR bằng jsQR
                 const code = jsQR(imageData.data, imageData.width, imageData.height, {
                     inversionAttempts: "dontInvert",
                 });
@@ -274,13 +309,13 @@
 
             if (brightness < 50) {
                 feedback.className = "feedback-banner warning";
-                feedback.innerText = "💡 Môi trường hơi tối! Di chuyển ra chỗ sáng hơn";
+                feedback.innerText = "💡 Hơi tối! Di chuyển ra chỗ sáng";
             } else if (brightness > 220) {
                 feedback.className = "feedback-banner warning";
-                feedback.innerText = "☀️ Ảnh chói sáng! Nghiêng nhẹ góc camera";
+                feedback.innerText = "☀️ Chói sáng! Nghiêng nhẹ góc máy";
             } else {
                 feedback.className = "feedback-banner";
-                feedback.innerText = "🎯 Giữ yên máy & điều chỉnh khoảng cách";
+                feedback.innerText = "🎯 Giữ yên máy & căn chỉnh khoảng cách";
             }
         }
 
@@ -303,31 +338,57 @@
             const parts = qrText.split('|');
             if (parts.length >= 1 && parts[0].length >= 9) {
                 isScanned = true;
-                const cccd = parts[0].trim();
-                const fullName = parts.length >= 3 ? parts[2].trim() : '';
+                
+                scannedData.cccd = parts[0].trim();
+                scannedData.name = parts.length >= 3 ? parts[2].trim() : '';
+                
+                let rawDob = parts.length >= 4 ? parts[3].trim() : '';
+                if (rawDob.length === 8) {
+                    scannedData.dob = `${rawDob.slice(0,2)}/${rawDob.slice(2,4)}/${rawDob.slice(4,8)}`;
+                } else {
+                    scannedData.dob = rawDob;
+                }
 
-                // Copy số CCCD tự động
-                navigator.clipboard.writeText(cccd).then(() => {
+                // Mặc định copy sẵn số CCCD vào bộ nhớ tạm
+                navigator.clipboard.writeText(scannedData.cccd).then(() => {
                     if (navigator.vibrate) navigator.vibrate(200);
 
-                    document.getElementById('dispCCCD').innerText = cccd;
-                    document.getElementById('dispName').innerText = fullName;
+                    document.getElementById('valCCCD').innerText = scannedData.cccd;
+                    document.getElementById('valName').innerText = scannedData.name;
+                    document.getElementById('valDOB').innerText = scannedData.dob;
                     document.getElementById('successModal').style.display = 'flex';
                 });
             }
         }
 
-        // Tùy chọn 1: Chuyển sang link Medinet
-        function goMedinet() {
-            window.location.href = "https://quanlyskcd.medinet.org.vn/app/main/dynamicreport/report/viewer-utility/KSKNCT_KiemTraNhanh_M11";
+        // Hàm copy từng trường riêng biệt khi bấm nút
+        function copyField(elementId, btnElement) {
+            const textToCopy = document.getElementById(elementId).innerText;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                if (navigator.vibrate) navigator.vibrate(100);
+                const originalText = btnElement.innerText;
+                btnElement.innerText = "✓ Đã chép";
+                btnElement.style.color = "#28a745";
+                setTimeout(() => {
+                    btnElement.innerText = originalText;
+                    btnElement.style.color = "#0275d8";
+                }, 1000);
+            });
         }
 
-        // Tùy chọn 2: Chuyển sang link Tra cứu BHYT
+        // Nút 1: Tự copy CCCD & chuyển sang Medinet
+        function goMedinet() {
+            navigator.clipboard.writeText(scannedData.cccd).then(() => {
+                window.location.href = "https://quanlyskcd.medinet.org.vn/app/main/dynamicreport/report/viewer-utility/KSKNCT_KiemTraNhanh_M11";
+            });
+        }
+
+        // Nút 2: Mở trang Tra cứu BHYT
         function goBHYT() {
             window.location.href = "https://baohiemxahoi.gov.vn/tracuu/Pages/tra-cuu-thoi-han-su-dung-the-bhyt.aspx";
         }
 
-        // Tùy chọn 3: Thử lại / Quét mã khác
+        // Nút 3: Thử lại / Quét mã tiếp theo
         function resetScanner() {
             document.getElementById('successModal').style.display = 'none';
             isScanned = false;
