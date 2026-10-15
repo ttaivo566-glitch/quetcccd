@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quét QR CCCD Nhanh</title>
+    <!-- Thư viện quét QR mã nguồn mở -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            text-align: center; 
+            padding: 20px 15px; 
+            background: #f4f6f9; 
+            margin: 0; 
+        }
+        .container {
+            max-width: 420px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        h2 { color: #0275d8; margin-top: 0; margin-bottom: 8px; font-size: 20px; }
+        p.subtitle { font-size: 13px; color: #666; margin-bottom: 18px; }
+        
+        #reader { 
+            width: 100%; 
+            border-radius: 10px; 
+            overflow: hidden; 
+            background: #000; 
+        }
+
+        /* Modal thông báo quét thành công */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            padding: 20px;
+        }
+        .modal-box {
+            background: #fff;
+            padding: 25px 20px;
+            border-radius: 15px;
+            width: 100%;
+            max-width: 320px;
+            text-align: center;
+            animation: popIn 0.3s ease-out;
+        }
+        @keyframes popIn {
+            0% { transform: scale(0.8); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .icon-success {
+            font-size: 48px;
+            color: #5cb85c;
+            margin-bottom: 10px;
+        }
+        .cccd-number {
+            font-size: 22px;
+            font-weight: bold;
+            color: #d9534f;
+            margin: 8px 0;
+            letter-spacing: 1px;
+        }
+        .full-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 12px;
+        }
+        .alert-text {
+            font-size: 13px;
+            color: #28a745;
+            background: #e8f8ed;
+            padding: 8px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>⚡ Quét Mã CCCD Tra Cứu</h2>
+        <p class="subtitle">Đưa camera về phía mã QR trên thẻ CCCD</p>
+        
+        <div id="reader"></div>
+    </div>
+
+    <!-- Màn hình thông báo Cảnh báo Quét Thành Công -->
+    <div class="modal-overlay" id="successModal">
+        <div class="modal-box">
+            <div class="icon-success">✓</div>
+            <h3 style="margin: 0 0 10px 0; color: #333;">QUÉT THÀNH CÔNG!</h3>
+            <div class="full-name" id="dispName">---</div>
+            <div style="font-size: 13px; color: #777;">Số CCCD:</div>
+            <div class="cccd-number" id="dispCCCD">------------</div>
+            
+            <div class="alert-text">
+                📋 Đã tự động copy số CCCD!<br>
+                ⏳ Trang web sẽ tự đóng sau <strong><span id="countdown">2</span>s</strong>...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let html5QrCode;
+        let isScanned = false;
+
+        function onScanSuccess(decodedText) {
+            if (isScanned) return;
+            
+            // Tách dữ liệu từ QR CCCD (Định dạng: SốCCCD|...|HọTên|...)
+            const parts = decodedText.split('|');
+            if (parts.length >= 1) {
+                isScanned = true;
+                const cccd = parts[0].trim();
+                const fullName = parts.length >= 3 ? parts[2].trim() : '';
+
+                // 1. Tắt camera ngay lập tức
+                html5QrCode.stop().then(() => {
+                    // 2. Tự động Copy số CCCD vào Bộ nhớ tạm (Clipboard)
+                    navigator.clipboard.writeText(cccd).then(() => {
+                        // Rung điện thoại báo hiệu (nếu thiết bị hỗ trợ)
+                        if (navigator.vibrate) navigator.vibrate(200);
+
+                        // 3. Hiển thị modal thông báo thành công
+                        document.getElementById('dispCCCD').innerText = cccd;
+                        document.getElementById('dispName').innerText = fullName;
+                        document.getElementById('successModal').style.display = 'flex';
+
+                        // 4. Đếm ngược 2 giây rồi TỰ ĐỘNG ĐÓNG TRANG WEB
+                        let timeLeft = 2;
+                        const timer = setInterval(() => {
+                            timeLeft--;
+                            document.getElementById('countdown').innerText = timeLeft;
+                            if (timeLeft <= 0) {
+                                clearInterval(timer);
+                                closeWindow();
+                            }
+                        }, 1000);
+                    });
+                }).catch(err => {
+                    console.error("Lỗi khi tắt camera", err);
+                });
+            }
+        }
+
+        // Hàm xử lý đóng trang web
+        function closeWindow() {
+            // Thử đóng tab hiện tại
+            window.close();
+            
+            // Nếu trình duyệt chặn window.close() (do tab không do script mở)
+            // Chuyển sang trang trắng hoặc báo người dùng quay lại tab Medinet
+            setTimeout(() => {
+                document.body.innerHTML = `
+                    <div style="padding: 40px 20px; font-family: sans-serif;">
+                        <h2 style="color: #28a745;">✓ Đã lưu số CCCD!</h2>
+                        <p style="font-size: 16px;">Vui lòng quay lại tab <strong>Medinet</strong> và chọn <strong>Dán (Paste)</strong>.</p>
+                    </div>
+                `;
+            }, 300);
+        }
+
+        // Khởi chạy Camera
+        window.addEventListener('DOMContentLoaded', () => {
+            html5QrCode = new Html5Qrcode("reader");
+            html5QrCode.start(
+                { facingMode: "environment" }, // Ưu tiên camera sau
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                onScanSuccess
+            ).catch(err => {
+                alert("Vui lòng cấp quyền truy cập Camera cho trình duyệt!");
+            });
+        });
+    </script>
+</body>
+</html>
