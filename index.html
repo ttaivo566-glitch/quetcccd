@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quét QR CCCD Nhanh</title>
-    <!-- Thư viện quét QR mã nguồn mở -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <title>Quét QR CCCD Siêu Nhạy</title>
+    <!-- Thư viện jsQR xử lý nhận diện QR trực tiếp siêu nhạy -->
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <style>
         * { box-sizing: border-box; }
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
             text-align: center; 
-            padding: 20px 15px; 
+            padding: 15px 10px; 
             background: #f4f6f9; 
             margin: 0; 
         }
@@ -19,25 +19,80 @@
             max-width: 420px;
             margin: 0 auto;
             background: #ffffff;
-            padding: 20px;
+            padding: 15px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }
-        h2 { color: #0275d8; margin-top: 0; margin-bottom: 8px; font-size: 20px; }
-        p.subtitle { font-size: 13px; color: #666; margin-bottom: 18px; }
+        h2 { color: #0275d8; margin: 0 0 5px 0; font-size: 18px; }
+        p.subtitle { font-size: 12px; color: #666; margin-bottom: 12px; }
         
-        #reader { 
-            width: 100%; 
-            border-radius: 10px; 
-            overflow: hidden; 
-            background: #000; 
+        .camera-wrapper {
+            position: relative;
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #000;
+        }
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        canvas { display: none; }
+
+        /* Khung căn chỉnh QR */
+        .scan-guide-box {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70%;
+            height: 70%;
+            border: 2px dashed #0275d8;
+            border-radius: 8px;
+            pointer-events: none;
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
         }
 
-        /* Modal thông báo quét thành công */
+        /* Dòng thông báo hướng dẫn / đề xuất */
+        .feedback-banner {
+            margin-top: 10px;
+            padding: 8px 12px;
+            font-size: 13px;
+            font-weight: bold;
+            border-radius: 6px;
+            background: #e9ecef;
+            color: #495057;
+            min-height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .feedback-banner.warning { background: #fff3cd; color: #856404; }
+        .feedback-banner.success { background: #d4edda; color: #155724; }
+
+        /* Nút bấm tạm dừng */
+        .btn-controls {
+            margin-top: 12px;
+        }
+        .btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            transition: background 0.2s;
+        }
+        .btn.paused { background: #0275d8; }
+
+        /* Modal thông báo kết quả */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0, 0, 0, 0.7);
+            background: rgba(0, 0, 0, 0.75);
             display: none;
             justify-content: center;
             align-items: center;
@@ -46,141 +101,215 @@
         }
         .modal-box {
             background: #fff;
-            padding: 25px 20px;
-            border-radius: 15px;
+            padding: 22px 18px;
+            border-radius: 14px;
             width: 100%;
             max-width: 320px;
             text-align: center;
-            animation: popIn 0.3s ease-out;
         }
-        @keyframes popIn {
-            0% { transform: scale(0.8); opacity: 0; }
-            100% { transform: scale(1); opacity: 1; }
-        }
-        .icon-success {
-            font-size: 48px;
-            color: #5cb85c;
-            margin-bottom: 10px;
-        }
-        .cccd-number {
-            font-size: 22px;
-            font-weight: bold;
-            color: #d9534f;
-            margin: 8px 0;
-            letter-spacing: 1px;
-        }
-        .full-name {
-            font-size: 16px;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 12px;
-        }
-        .alert-text {
-            font-size: 13px;
-            color: #28a745;
-            background: #e8f8ed;
-            padding: 8px;
-            border-radius: 6px;
-            margin-top: 10px;
-        }
+        .icon-success { font-size: 44px; color: #28a745; margin-bottom: 5px; }
+        .cccd-number { font-size: 20px; font-weight: bold; color: #d9534f; margin: 6px 0; letter-spacing: 1px; }
+        .full-name { font-size: 15px; font-weight: bold; color: #333; }
+        .alert-text { font-size: 12px; color: #28a745; background: #e8f8ed; padding: 8px; border-radius: 6px; margin-top: 10px; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2>⚡ Quét Mã CCCD Tra Cứu</h2>
-        <p class="subtitle">Đưa camera về phía mã QR trên thẻ CCCD</p>
+        <h2>⚡ Quét CCCD Siêu Nhạy</h2>
+        <p class="subtitle">Đưa mã QR CCCD vào giữa khung nét đứt</p>
         
-        <div id="reader"></div>
+        <div class="camera-wrapper">
+            <video id="video" playsinline></video>
+            <div class="scan-guide-box"></div>
+        </div>
+
+        <canvas id="canvas"></canvas>
+
+        <!-- Thanh thông báo gợi ý điều chỉnh camera -->
+        <div class="feedback-banner" id="feedback">Đang khởi động camera...</div>
+
+        <!-- Nút tạm dừng quét -->
+        <div class="btn-controls">
+            <button class="btn" id="pauseBtn" onclick="togglePause()">⏸️ Tạm dừng Quét</button>
+        </div>
     </div>
 
-    <!-- Màn hình thông báo Cảnh báo Quét Thành Công -->
+    <!-- Màn hình thông báo quét thành công -->
     <div class="modal-overlay" id="successModal">
         <div class="modal-box">
             <div class="icon-success">✓</div>
-            <h3 style="margin: 0 0 10px 0; color: #333;">QUÉT THÀNH CÔNG!</h3>
+            <h3 style="margin: 0 0 8px 0; color: #333;">QUÉT THÀNH CÔNG!</h3>
             <div class="full-name" id="dispName">---</div>
-            <div style="font-size: 13px; color: #777;">Số CCCD:</div>
+            <div style="font-size: 12px; color: #777; margin-top: 4px;">Số CCCD:</div>
             <div class="cccd-number" id="dispCCCD">------------</div>
             
             <div class="alert-text">
                 📋 Đã tự động copy số CCCD!<br>
-                ⏳ Trang web sẽ tự đóng sau <strong><span id="countdown">2</span>s</strong>...
+                ⏳ Tự đóng trang sau <strong><span id="countdown">2</span>s</strong>...
             </div>
         </div>
     </div>
 
     <script>
-        let html5QrCode;
-        let isScanned = false;
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        const feedback = document.getElementById('feedback');
+        const pauseBtn = document.getElementById('pauseBtn');
 
-        function onScanSuccess(decodedText) {
+        let isPaused = false;
+        let isScanned = false;
+        let stream = null;
+        let scanFrameId = null;
+
+        // Bắt đầu mở camera với độ phân giải cao Full HD (1080p) để tăng độ rõ nét mã QR
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        facingMode: "environment",
+                        width: { ideal: 1920 },
+                        height: { ideal: 1080 }
+                    }
+                });
+                video.srcObject = stream;
+                video.setAttribute("playsinline", true);
+                video.play();
+                requestAnimationFrame(tick);
+            } catch (err) {
+                feedback.className = "feedback-banner warning";
+                feedback.innerText = "❌ Không thể truy cập Camera. Vui lòng cấp quyền!";
+            }
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            if (isPaused) {
+                pauseBtn.innerText = "▶️ Tiếp tục Quét";
+                pauseBtn.classList.add("paused");
+                feedback.className = "feedback-banner";
+                feedback.innerText = "⏸️ Đã tạm dừng camera";
+            } else {
+                pauseBtn.innerText = "⏸️ Tạm dừng Quét";
+                pauseBtn.classList.remove("paused");
+                feedback.innerText = "Đang tìm mã QR...";
+            }
+        }
+
+        function tick() {
             if (isScanned) return;
-            
-            // Tách dữ liệu từ QR CCCD (Định dạng: SốCCCD|...|HọTên|...)
-            const parts = decodedText.split('|');
-            if (parts.length >= 1) {
+
+            if (!isPaused && video.readyState === video.HAVE_ENOUGH_DATA) {
+                canvas.height = video.videoHeight;
+                canvas.width = video.videoWidth;
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                
+                // 1. Phân tích độ sáng & Đưa ra gợi ý (Gợi ý camera)
+                analyzeFrame(imageData);
+
+                // 2. Nhận diện mã QR sử dụng jsQR
+                const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                    inversionAttempts: "dontInvert",
+                });
+
+                if (code && code.data) {
+                    onCodeDetected(code.data, code.location);
+                }
+            }
+
+            scanFrameId = requestAnimationFrame(tick);
+        }
+
+        // Hàm phân tích độ sáng và vị trí để gợi ý người dùng
+        function analyzeFrame(imageData) {
+            const data = imageData.data;
+            let length = data.length;
+            let colorSum = 0;
+
+            // Lấy mẫu điểm ảnh để tính độ sáng trung bình
+            for (let i = 0; i < length; i += 32) {
+                colorSum += (data[i] + data[i+1] + data[i+2]) / 3;
+            }
+            const brightness = Math.floor(colorSum / (length / 32));
+
+            if (brightness < 50) {
+                feedback.className = "feedback-banner warning";
+                feedback.innerText = "💡 Môi trường hơi tối! Hãy di chuyển ra chỗ sáng hơn";
+            } else if (brightness > 220) {
+                feedback.className = "feedback-banner warning";
+                feedback.innerText = "☀️ Ảnh bị chói sáng! Hãy nghiêng góc máy một chút";
+            } else {
+                feedback.className = "feedback-banner";
+                feedback.innerText = "🎯 Giữ yên máy & điều chỉnh khoảng cách thích hợp";
+            }
+        }
+
+        // Xử lý khi tìm thấy mã QR CCCD
+        function onCodeDetected(qrText, location) {
+            // Kiểm tra xem QR có đúng cỡ trong vùng căn chỉnh không
+            if (location) {
+                const qrWidth = Math.hypot(location.topRightCorner.x - location.topLeftCorner.x, location.topRightCorner.y - location.topLeftCorner.y);
+                const boxRatio = qrWidth / canvas.width;
+
+                if (boxRatio < 0.15) {
+                    feedback.className = "feedback-banner warning";
+                    feedback.innerText = "🔍 Đưa camera LẠI GẦN thẻ hơn chút nữa";
+                    return;
+                } else if (boxRatio > 0.7) {
+                    feedback.className = "feedback-banner warning";
+                    feedback.innerText = "↔️ LÙI CAMERA RA XA một chút";
+                    return;
+                }
+            }
+
+            // Tách thông tin CCCD (Cấu trúc: SốCCCD|...|HọTên|...)
+            const parts = qrText.split('|');
+            if (parts.length >= 1 && parts[0].length >= 9) {
                 isScanned = true;
                 const cccd = parts[0].trim();
                 const fullName = parts.length >= 3 ? parts[2].trim() : '';
 
-                // 1. Tắt camera ngay lập tức
-                html5QrCode.stop().then(() => {
-                    // 2. Tự động Copy số CCCD vào Bộ nhớ tạm (Clipboard)
-                    navigator.clipboard.writeText(cccd).then(() => {
-                        // Rung điện thoại báo hiệu (nếu thiết bị hỗ trợ)
-                        if (navigator.vibrate) navigator.vibrate(200);
+                feedback.className = "feedback-banner success";
+                feedback.innerText = "✓ Đã tìm thấy mã QR!";
 
-                        // 3. Hiển thị modal thông báo thành công
-                        document.getElementById('dispCCCD').innerText = cccd;
-                        document.getElementById('dispName').innerText = fullName;
-                        document.getElementById('successModal').style.display = 'flex';
+                // Tự động Copy số CCCD vào Bộ nhớ tạm
+                navigator.clipboard.writeText(cccd).then(() => {
+                    if (navigator.vibrate) navigator.vibrate(200);
 
-                        // 4. Đếm ngược 2 giây rồi TỰ ĐỘNG ĐÓNG TRANG WEB
-                        let timeLeft = 2;
-                        const timer = setInterval(() => {
-                            timeLeft--;
-                            document.getElementById('countdown').innerText = timeLeft;
-                            if (timeLeft <= 0) {
-                                clearInterval(timer);
-                                closeWindow();
-                            }
-                        }, 1000);
-                    });
-                }).catch(err => {
-                    console.error("Lỗi khi tắt camera", err);
+                    document.getElementById('dispCCCD').innerText = cccd;
+                    document.getElementById('dispName').innerText = fullName;
+                    document.getElementById('successModal').style.display = 'flex';
+
+                    // Đếm ngược 2s và tự đóng trang
+                    let timeLeft = 2;
+                    const timer = setInterval(() => {
+                        timeLeft--;
+                        document.getElementById('countdown').innerText = timeLeft;
+                        if (timeLeft <= 0) {
+                            clearInterval(timer);
+                            closeWindow();
+                        }
+                    }, 1000);
                 });
             }
         }
 
-        // Hàm xử lý đóng trang web
         function closeWindow() {
-            // Thử đóng tab hiện tại
             window.close();
-            
-            // Nếu trình duyệt chặn window.close() (do tab không do script mở)
-            // Chuyển sang trang trắng hoặc báo người dùng quay lại tab Medinet
             setTimeout(() => {
                 document.body.innerHTML = `
-                    <div style="padding: 40px 20px; font-family: sans-serif;">
-                        <h2 style="color: #28a745;">✓ Đã lưu số CCCD!</h2>
-                        <p style="font-size: 16px;">Vui lòng quay lại tab <strong>Medinet</strong> và chọn <strong>Dán (Paste)</strong>.</p>
+                    <div style="padding: 40px 20px; font-family: sans-serif; text-align: center;">
+                        <h2 style="color: #28a745;">✓ Đã lưu số CCCD thành công!</h2>
+                        <p style="font-size: 15px;">Vui lòng quay lại tab <strong>Medinet</strong> và chọn <strong>Dán (Paste)</strong>.</p>
                     </div>
                 `;
             }, 300);
         }
 
-        // Khởi chạy Camera
-        window.addEventListener('DOMContentLoaded', () => {
-            html5QrCode = new Html5Qrcode("reader");
-            html5QrCode.start(
-                { facingMode: "environment" }, // Ưu tiên camera sau
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                onScanSuccess
-            ).catch(err => {
-                alert("Vui lòng cấp quyền truy cập Camera cho trình duyệt!");
-            });
-        });
+        window.addEventListener('DOMContentLoaded', startCamera);
     </script>
 </body>
 </html>
