@@ -83,6 +83,10 @@ h1{font-size:18px;font-weight:650;margin:2px 2px 10px;letter-spacing:.2px}
 .top{display:flex;justify-content:space-between;align-items:center}
 .back{color:var(--mute);font-size:14px;text-decoration:none;padding:6px 2px}
 .res{position:absolute;left:10px;bottom:8px;font-size:11px;color:#fff9;pointer-events:none}
+.zoom{position:absolute;right:10px;bottom:10px;display:flex;gap:6px}
+.zoom button{border:0;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;font-size:14px;padding:7px 12px}
+.zoom button.on{background:var(--accent);color:#04201c}
+.cam video{transform-origin:center}
 </style>
 </head>
 <body>
@@ -155,7 +159,7 @@ h1{font-size:18px;font-weight:650;margin:2px 2px 10px;letter-spacing:.2px}
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
-        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 3840 }, height: { ideal: 2160 } }
       });
     } catch (e) {
       const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
@@ -165,7 +169,7 @@ h1{font-size:18px;font-weight:650;margin:2px 2px 10px;letter-spacing:.2px}
     track = stream.getVideoTracks()[0];
     video.srcObject = stream;
     try { await video.play(); } catch (e) {}
-    try { const c = track.getCapabilities && track.getCapabilities(); if (c && c.torch) $('torch').style.display = 'block'; } catch (e) {}
+    setupCaps();
     video.onloadedmetadata = video.onresize = () => { resEl.textContent = video.videoWidth + '×' + video.videoHeight; };
     resEl.textContent = video.videoWidth + '×' + video.videoHeight;
     if (typeof jsQR !== 'function' && !window.ZXing) { setHint('Không tải được thư viện quét — kiểm tra mạng rồi tải lại trang', 'bad'); return; }
@@ -178,6 +182,39 @@ h1{font-size:18px;font-weight:650;margin:2px 2px 10px;letter-spacing:.2px}
     try { torchOn = !torchOn; await track.applyConstraints({ advanced: [{ torch: torchOn }] }); $('torch').classList.toggle('on', torchOn); }
     catch (e) { torchOn = false; }
   };
+
+  /* ---------- Zoom & lấy nét ---------- */
+  let zoomD = 1, zoomHW = null, manualZoom = false, lastZoomAt = 0, lastFocusAt = 0;
+  const zb = document.createElement('div'); zb.className = 'zoom';
+  zb.innerHTML = '<button data-z="1" class="on">1×</button><button data-z="2">2×</button><button data-z="3">3×</button>';
+  cam.appendChild(zb);
+  zb.querySelectorAll('button').forEach(b => b.onclick = e => { e.stopPropagation(); manualZoom = true; setZoom(+b.dataset.z); });
+
+  function setupCaps() {
+    try {
+      const c = track.getCapabilities ? track.getCapabilities() : {};
+      if (c.torch) $('torch').style.display = 'block';
+      zoomHW = c.zoom && c.zoom.max > 1 ? { min: c.zoom.min || 1, max: c.zoom.max } : null;
+    } catch (e) { zoomHW = null; }
+    refocus();
+  }
+  function refocus() {
+    lastFocusAt = performance.now();
+    if (!track || !track.applyConstraints) return;
+    try { track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] }).catch(() => {}); } catch (e) {}
+  }
+  async function setZoom(z) {
+    lastZoomAt = performance.now();
+    zb.querySelectorAll('button').forEach(b => b.classList.toggle('on', +b.dataset.z === z));
+    if (zoomHW) {
+      try {
+        await track.applyConstraints({ advanced: [{ zoom: Math.min(zoomHW.max, Math.max(zoomHW.min, z)) }] });
+        zoomD = 1; video.style.transform = ''; return;
+      } catch (e) { zoomHW = null; }
+    }
+    zoomD = z; video.style.transform = z > 1 ? 'scale(' + z + ')' : '';
+  }
+  cam.addEventListener('click', refocus);
 
   /* ---------- Decoders ---------- */
   let zr = null, zh = null;
@@ -193,27 +230,38 @@ h1{font-size:18px;font-weight:650;margin:2px 2px 10px;letter-spacing:.2px}
     return !!zr;
   }
 
-  // Giãn tương phản (2%–98%) + chuyển xám: giúp QR nhỏ, mờ, thiếu sáng
-  function enhance(d) {
-    const n = d.length / 4, h = new Uint32Array(256), g = new Uint8Array(n);
-    for (let i = 0, j = 0; j < n; i += 4, j++) { const v = (d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8; g[j] = v; h[v]++; }
+  // Giãn tương phản (2%–98%) + chuyển xám + làm nét (unsharp): giúp QR nhỏ, mờ, thiếu sáng
+  function enhance(d, w, h, sharp) {
+    const n = w * h, hist = new Uint32Array(256); let g = new Uint8Array(n);
+    for (let i = 0, j = 0; j < n; i += 4, j++) { const v = (d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8; g[j] = v; hist[v]++; }
     let lo = 0, hi = 255, a = 0; const t = n * .02;
-    while (lo < 255 && (a += h[lo]) < t) lo++;
-    a = 0; while (hi > 0 && (a += h[hi]) < t) hi--;
+    while (lo < 255 && (a += hist[lo]) < t) lo++;
+    a = 0; while (hi > 0 && (a += hist[hi]) < t) hi--;
     const k = 255 / Math.max(1, hi - lo);
-    for (let i = 0, j = 0; j < n; i += 4, j++) { let v = (g[j] - lo) * k; v = v < 0 ? 0 : v > 255 ? 255 : v; d[i] = d[i + 1] = d[i + 2] = v; }
+    for (let j = 0; j < n; j++) { const v = (g[j] - lo) * k; g[j] = v < 0 ? 0 : v > 255 ? 255 : v; }
+    if (sharp) {
+      const o = new Uint8Array(g);
+      for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+        const i = y * w + x, v = 5 * g[i] - g[i - 1] - g[i + 1] - g[i - w] - g[i + w];
+        o[i] = v < 0 ? 0 : v > 255 ? 255 : v;
+      }
+      g = o;
+    }
+    for (let i = 0, j = 0; j < n; i += 4, j++) d[i] = d[i + 1] = d[i + 2] = g[j];
   }
 
-  // Các chiến lược quét xoay vòng: vùng giữa khung ở độ phân giải gốc (QR nhỏ),
-  // toàn khung (QR lớn / lệch tâm), thêm tăng tương phản và ZXing (QR dày, khó đọc)
+  // Các chiến lược quét xoay vòng. crop = tỉ lệ vùng giữa khung (so với cạnh ngắn),
+  // up = phóng to ảnh trước khi giải mã (cho QR nhỏ), enh = tăng tương phản, sharp = làm nét
   const STRATS = [
-    { e: 'js', crop: .7, maxW: 900 },
-    { e: 'zx', crop: .7, maxW: 900 },
-    { e: 'js', crop: 0,  maxW: 1100 },
-    { e: 'js', crop: .7, maxW: 900, enh: 1, inv: 1 },
-    { e: 'zx', crop: 0,  maxW: 1280, enh: 1 },
-    { e: 'js', crop: 0,  maxW: 640 },
-    { e: 'zx', crop: .55, maxW: 700, enh: 1 }
+    { e: 'js', crop: .45, maxW: 1000 },
+    { e: 'zx', crop: .45, maxW: 1000 },
+    { e: 'js', crop: .3,  up: 2, enh: 1, sharp: 1 },
+    { e: 'js', crop: .7,  maxW: 1000 },
+    { e: 'zx', crop: .3,  up: 2, enh: 1 },
+    { e: 'js', crop: 0,   maxW: 1100 },
+    { e: 'js', crop: .45, maxW: 1000, enh: 1, inv: 1 },
+    { e: 'zx', crop: 0,   maxW: 1280, enh: 1 },
+    { e: 'js', crop: 0,   maxW: 640 }
   ];
 
   function fixUtf8(s) {
@@ -227,16 +275,19 @@ h1{font-size:18px;font-weight:650;margin:2px 2px 10px;letter-spacing:.2px}
 
   function attempt(st) {
     const vw = video.videoWidth, vh = video.videoHeight, m = Math.min(vw, vh);
+    const crop = st.crop ? Math.min(1, st.crop / zoomD) : (zoomD > 1 ? 1 / zoomD : 0);
     let sx = 0, sy = 0, sw = vw, sh = vh;
-    if (st.crop) { sw = sh = Math.round(m * st.crop); sx = (vw - sw) / 2; sy = (vh - sh) / 2; }
-    const scale = Math.min(1, st.maxW / sw), w = Math.round(sw * scale), h = Math.round(sh * scale);
+    if (crop) { sw = sh = Math.round(m * crop); sx = (vw - sw) / 2; sy = (vh - sh) / 2; }
+    const scale = st.up ? Math.min(st.up, 1000 / sw) : Math.min(1, st.maxW / sw);
+    const w = Math.round(sw * scale), h = Math.round(sh * scale);
     if (work.width !== w || work.height !== h) { work.width = w; work.height = h; }
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(video, sx, sy, sw, sh, 0, 0, w, h);
 
     if (st.e === 'js') {
       if (typeof jsQR !== 'function') return null;
       const img = ctx.getImageData(0, 0, w, h);
-      if (st.enh) enhance(img.data);
+      if (st.enh) enhance(img.data, w, h, st.sharp);
       const r = jsQR(img.data, w, h, { inversionAttempts: st.inv ? 'attemptBoth' : 'dontInvert' });
       if (!r) return null;
       let text = r.data;
@@ -244,7 +295,7 @@ h1{font-size:18px;font-weight:650;margin:2px 2px 10px;letter-spacing:.2px}
       return { text };
     }
     if (!zxReady()) return null;
-    if (st.enh) { const img = ctx.getImageData(0, 0, w, h); enhance(img.data); ctx.putImageData(img, 0, 0); }
+    if (st.enh) { const img = ctx.getImageData(0, 0, w, h); enhance(img.data, w, h, st.sharp); ctx.putImageData(img, 0, 0); }
     try {
       const src = new ZXing.HTMLCanvasElementLuminanceSource(work);
       const r = zr.decode(new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(src)), zh);
@@ -255,6 +306,7 @@ h1{font-size:18px;font-weight:650;margin:2px 2px 10px;letter-spacing:.2px}
   /* ---------- Vòng quét ---------- */
   function resumeScan() {
     current = null; scanning = true; startedAt = performance.now();
+    manualZoom = false; setZoom(1); refocus();
     video.play().catch(() => {});
     setHint('Đưa mã QR trên CCCD vào khung', '');
     loop(++loopId);
@@ -284,14 +336,16 @@ h1{font-size:18px;font-weight:650;margin:2px 2px 10px;letter-spacing:.2px}
   }
 
   function idleHint(t) {
+    if (t - lastFocusAt > 2500) refocus();
+    const s = (t - startedAt) / 1000;
+    if (!manualZoom && s > 3 && t - lastZoomAt > 3000) setZoom(zoomHW ? (lastZ = lastZ % 3 + 1) : (lastZ = lastZ % 3 + 1));
     if (t - lastInvalid < 1500 && lastInvalid) return;
     if (lum < 55) return setHint('Quá tối — bật đèn hoặc di chuyển ra chỗ sáng hơn', 'bad');
     if (lum > 215) return setHint('Quá sáng/chói — nghiêng thẻ để tránh phản chiếu', 'warn');
-    const s = (t - startedAt) / 1000;
-    if (s > 8) return setHint('Chưa quét được — thử lùi thẻ ra 20–25 cm, tránh bóng/lóa, giữ yên 1–2 giây', 'warn');
-    if (s > 3) return setHint('Giữ thẻ cách camera khoảng 12–20 cm để lấy nét, đặt QR giữa khung', 'warn');
+    if (s > 3) return setHint('Giữ thẻ cách camera 15–20 cm cho nét, giữ yên. Đang tự phóng to (' + (zoomD > 1 ? zoomD : (zb.querySelector('.on') || {}).dataset.z) + '×)', 'warn');
     setHint('Đưa mã QR trên CCCD vào khung', '');
   }
+  let lastZ = 1;
 
   function handleQR(text, t) {
     const d = parseCCCD(fixUtf8(String(text)));
