@@ -11,7 +11,7 @@
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
             text-align: center; 
-            padding: 15px 10px; 
+            padding: 10px; 
             background: #f4f6f9; 
             margin: 0; 
         }
@@ -19,14 +19,14 @@
             max-width: 400px;
             margin: 0 auto;
             background: #ffffff;
-            padding: 15px;
+            padding: 12px;
             border-radius: 12px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.08);
         }
-        h2 { color: #0275d8; margin: 0 0 5px 0; font-size: 18px; }
-        p.subtitle { font-size: 12px; color: #666; margin-bottom: 12px; }
+        h2 { color: #0275d8; margin: 0 0 4px 0; font-size: 17px; }
+        p.subtitle { font-size: 11px; color: #666; margin-bottom: 10px; }
         
-        /* Khung Camera hình vuông (1:1) */
+        /* Khung Camera hình vuông (1:1) với tính năng Zoom */
         .camera-wrapper {
             position: relative;
             width: 100%;
@@ -35,11 +35,17 @@
             overflow: hidden;
             background: #000;
         }
-        video {
+        .video-container {
             position: absolute;
             top: 0; left: 0;
             width: 100%; height: 100%;
+            transition: transform 0.2s ease; /* Hiệu ứng mượt khi zoom */
+            transform-origin: center center;
+        }
+        video {
+            width: 100%; height: 100%;
             object-fit: cover;
+            display: block;
         }
         canvas { display: none; }
 
@@ -53,18 +59,42 @@
             border-radius: 8px;
             pointer-events: none;
             box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+            z-index: 2;
+        }
+
+        /* Thanh điều khiển Zoom nhanh */
+        .zoom-controls {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 8px;
+        }
+        .btn-zoom {
+            flex: 1;
+            background: #e2e8f0;
+            border: none;
+            padding: 6px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            color: #4a5568;
+            cursor: pointer;
+        }
+        .btn-zoom.active {
+            background: #0275d8;
+            color: white;
         }
 
         /* Thanh thông báo gợi ý */
         .feedback-banner {
-            margin-top: 10px;
-            padding: 8px 12px;
-            font-size: 13px;
+            margin-top: 8px;
+            padding: 6px 10px;
+            font-size: 12px;
             font-weight: bold;
             border-radius: 6px;
             background: #e9ecef;
             color: #495057;
-            min-height: 38px;
+            min-height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -73,13 +103,13 @@
         .feedback-banner.success { background: #d4edda; color: #155724; }
 
         /* Nút Tạm dừng */
-        .btn-controls { margin-top: 10px; }
+        .btn-controls { margin-top: 8px; }
         .btn-pause {
             background: #6c757d;
             color: white;
             border: none;
-            padding: 10px;
-            font-size: 14px;
+            padding: 9px;
+            font-size: 13px;
             border-radius: 6px;
             cursor: pointer;
             font-weight: bold;
@@ -87,7 +117,7 @@
         }
         .btn-pause.paused { background: #0275d8; }
 
-        /* Modal hiển thị kết quả & các nút thao tác */
+        /* Modal hiển thị kết quả */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -106,45 +136,42 @@
             max-width: 340px;
             text-align: center;
         }
-        .icon-success { font-size: 36px; color: #28a745; margin-bottom: 2px; }
+        .icon-success { font-size: 34px; color: #28a745; margin-bottom: 2px; }
         
-        /* Khối hiển thị thông tin từng trường kèm nút copy riêng */
         .info-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
             background: #f8f9fa;
             border: 1px solid #e9ecef;
-            padding: 8px 10px;
+            padding: 7px 10px;
             border-radius: 8px;
-            margin: 6px 0;
+            margin: 5px 0;
             text-align: left;
         }
         .info-label { font-size: 11px; color: #666; display: block; }
-        .info-value { font-size: 14px; font-weight: bold; color: #333; word-break: break-all; }
+        .info-value { font-size: 13px; font-weight: bold; color: #333; word-break: break-all; }
         .btn-copy-field {
             background: #e2e8f0;
             border: none;
-            padding: 6px 10px;
+            padding: 5px 9px;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: bold;
             color: #0275d8;
             cursor: pointer;
             white-space: nowrap;
             margin-left: 8px;
         }
-        .btn-copy-field:active { background: #cbd5e1; }
 
-        /* Nhóm nút chuyển trang lớn */
         .action-btns {
             display: flex;
             flex-direction: column;
-            gap: 8px;
-            margin-top: 12px;
+            gap: 7px;
+            margin-top: 10px;
         }
         .btn-action {
-            padding: 11px;
+            padding: 10px;
             border: none;
             border-radius: 8px;
             font-size: 13px;
@@ -165,12 +192,21 @@
 <body>
 
     <div class="container">
-        <h2>⚡ Quét CCCD Siêu Nhạy</h2>
-        <p class="subtitle">Đưa mã QR CCCD vào giữa khung vuông</p>
+        <h2>⚡ Quét QR CCCD Siêu Nhạy</h2>
+        <p class="subtitle">Hỗ trợ quét nhanh mã QR lớn và nhỏ</p>
         
         <div class="camera-wrapper">
-            <video id="video" playsinline></video>
+            <div class="video-container" id="videoContainer">
+                <video id="video" playsinline></video>
+            </div>
             <div class="scan-guide-box"></div>
+        </div>
+
+        <!-- Nút điều chỉnh Zoom nhanh cho mã QR nhỏ -->
+        <div class="zoom-controls">
+            <button class="btn-zoom active" id="zoom1x" onclick="setZoom(1, this)">🔍 1x (Chuẩn)</button>
+            <button class="btn-zoom" id="zoom1.5x" onclick="setZoom(1.5, this)">🔍 1.5x (QR Nhỏ)</button>
+            <button class="btn-zoom" id="zoom2x" onclick="setZoom(2, this)">🔍 2x (Rất nhỏ)</button>
         </div>
 
         <canvas id="canvas"></canvas>
@@ -186,9 +222,8 @@
     <div class="modal-overlay" id="successModal">
         <div class="modal-box">
             <div class="icon-success">✓</div>
-            <h3 style="margin: 0 0 10px 0; color: #333; font-size: 16px;">QUÉT THÀNH CÔNG!</h3>
+            <h3 style="margin: 0 0 8px 0; color: #333; font-size: 15px;">QUÉT THÀNH CÔNG!</h3>
             
-            <!-- Trường 1: CCCD -->
             <div class="info-row">
                 <div>
                     <span class="info-label">Số CCCD</span>
@@ -197,7 +232,6 @@
                 <button class="btn-copy-field" onclick="copyField('valCCCD', this)">📋 Copy</button>
             </div>
 
-            <!-- Trường 2: Họ tên -->
             <div class="info-row">
                 <div>
                     <span class="info-label">Họ và tên</span>
@@ -206,7 +240,6 @@
                 <button class="btn-copy-field" onclick="copyField('valName', this)">📋 Copy</button>
             </div>
 
-            <!-- Trường 3: Ngày sinh -->
             <div class="info-row">
                 <div>
                     <span class="info-label">Ngày sinh</span>
@@ -215,7 +248,6 @@
                 <button class="btn-copy-field" onclick="copyField('valDOB', this)">📋 Copy</button>
             </div>
 
-            <!-- 3 Nút Chức Năng Chính -->
             <div class="action-btns">
                 <button class="btn-action btn-medinet" onclick="goMedinet()">
                     🔍 1. Tra cứu nhanh (Medinet)
@@ -232,6 +264,7 @@
 
     <script>
         const video = document.getElementById('video');
+        const videoContainer = document.getElementById('videoContainer');
         const canvas = document.getElementById('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         const feedback = document.getElementById('feedback');
@@ -240,8 +273,19 @@
         let isPaused = false;
         let isScanned = false;
         let stream = null;
+        let currentZoom = 1;
 
         let scannedData = { cccd: "", name: "", dob: "" };
+
+        // Hàm thay đổi mức độ Zoom khi gặp mã QR nhỏ
+        function setZoom(level, btnElement) {
+            currentZoom = level;
+            videoContainer.style.transform = `scale(${level})`;
+            
+            // Đổi trạng thái active cho nút
+            document.querySelectorAll('.btn-zoom').forEach(btn => btn.classList.remove('active'));
+            btnElement.classList.add('active');
+        }
 
         async function startCamera() {
             try {
@@ -302,10 +346,10 @@
         function analyzeFrame(imageData) {
             const data = imageData.data;
             let colorSum = 0;
-            for (let i = 0; i < data.length; i += 32) {
+            for (let i = 0; i < data.length; i += 64) { // Tối ưu tốc độ lấy mẫu
                 colorSum += (data[i] + data[i+1] + data[i+2]) / 3;
             }
-            const brightness = Math.floor(colorSum / (data.length / 32));
+            const brightness = Math.floor(colorSum / (data.length / 64));
 
             if (brightness < 50) {
                 feedback.className = "feedback-banner warning";
@@ -315,26 +359,11 @@
                 feedback.innerText = "☀️ Chói sáng! Nghiêng nhẹ góc máy";
             } else {
                 feedback.className = "feedback-banner";
-                feedback.innerText = "🎯 Giữ yên máy & căn chỉnh khoảng cách";
+                feedback.innerText = currentZoom > 1 ? "🔍 Đang phóng to QR nhỏ - Giữ yên máy" : "🎯 Đưa mã QR vào khung vuông";
             }
         }
 
         function onCodeDetected(qrText, location) {
-            if (location) {
-                const qrWidth = Math.hypot(location.topRightCorner.x - location.topLeftCorner.x, location.topRightCorner.y - location.topLeftCorner.y);
-                const boxRatio = qrWidth / canvas.width;
-
-                if (boxRatio < 0.12) {
-                    feedback.className = "feedback-banner warning";
-                    feedback.innerText = "🔍 Đưa camera LẠI GẦN thẻ hơn";
-                    return;
-                } else if (boxRatio > 0.75) {
-                    feedback.className = "feedback-banner warning";
-                    feedback.innerText = "↔️ LÙI CAMERA RA XA một chút";
-                    return;
-                }
-            }
-
             const parts = qrText.split('|');
             if (parts.length >= 1 && parts[0].length >= 9) {
                 isScanned = true;
@@ -349,7 +378,6 @@
                     scannedData.dob = rawDob;
                 }
 
-                // Copy sẵn số CCCD vào bộ nhớ tạm (không rung)
                 navigator.clipboard.writeText(scannedData.cccd).then(() => {
                     document.getElementById('valCCCD').innerText = scannedData.cccd;
                     document.getElementById('valName').innerText = scannedData.name;
@@ -359,7 +387,6 @@
             }
         }
 
-        // Hàm copy từng trường riêng biệt (không rung)
         function copyField(elementId, btnElement) {
             const textToCopy = document.getElementById(elementId).innerText;
             navigator.clipboard.writeText(textToCopy).then(() => {
@@ -373,19 +400,16 @@
             });
         }
 
-        // Nút 1: Tự copy CCCD & chuyển sang Medinet
         function goMedinet() {
             navigator.clipboard.writeText(scannedData.cccd).then(() => {
                 window.location.href = "https://quanlyskcd.medinet.org.vn/app/main/dynamicreport/report/viewer-utility/KSKNCT_KiemTraNhanh_M11";
             });
         }
 
-        // Nút 2: Mở trang Tra cứu BHYT
         function goBHYT() {
             window.location.href = "https://baohiemxahoi.gov.vn/tracuu/Pages/tra-cuu-thoi-han-su-dung-the-bhyt.aspx";
         }
 
-        // Nút 3: Thử lại / Quét mã tiếp theo
         function resetScanner() {
             document.getElementById('successModal').style.display = 'none';
             isScanned = false;
