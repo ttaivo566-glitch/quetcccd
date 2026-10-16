@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quét QR CCCD Đa Nền Tảng</title>
-    <!-- Thư viện jsQR -->
-    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <title>Quét QR CCCD Siêu Tốc (iOS & Android)</title>
+    <!-- Thư viện html5-qrcode chính hãng hỗ trợ phần cứng gốc -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         * { box-sizing: border-box; }
         body { 
@@ -26,92 +26,35 @@
         h2 { color: #0275d8; margin: 0 0 4px 0; font-size: 17px; }
         p.subtitle { font-size: 11px; color: #666; margin-bottom: 10px; }
         
-        .camera-wrapper {
-            position: relative;
+        /* Khung chứa camera chuẩn của html5-qrcode */
+        #reader {
             width: 100%;
-            padding-top: 100%;
-            border-radius: 12px;
+            border-radius: 10px;
             overflow: hidden;
             background: #000;
+            border: none !important;
         }
-        .video-container {
-            position: absolute;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            transition: transform 0.2s ease;
-            transform-origin: center center;
-        }
-        video {
-            width: 100%; height: 100%;
-            object-fit: cover;
-            display: block;
-        }
-        canvas { display: none; }
-
-        .scan-guide-box {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 75%; height: 75%;
-            border: 2px dashed #0275d8;
-            border-radius: 8px;
-            pointer-events: none;
-            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
-            z-index: 2;
-        }
-
-        .zoom-controls {
-            display: flex;
-            justify-content: center;
-            gap: 6px;
-            margin-top: 8px;
-        }
-        .btn-zoom {
-            flex: 1;
-            background: #e2e8f0;
-            border: none;
-            padding: 6px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: bold;
-            color: #4a5568;
-            cursor: pointer;
-        }
-        .btn-zoom.active {
-            background: #0275d8;
-            color: white;
+        #reader video {
+            object-fit: cover !important;
+            border-radius: 10px;
         }
 
         .feedback-banner {
-            margin-top: 8px;
-            padding: 6px 10px;
+            margin-top: 10px;
+            padding: 8px 12px;
             font-size: 12px;
             font-weight: bold;
             border-radius: 6px;
             background: #e9ecef;
             color: #495057;
-            min-height: 32px;
+            min-height: 36px;
             display: flex;
             align-items: center;
             justify-content: center;
         }
-        .feedback-banner.warning { background: #fff3cd; color: #856404; }
         .feedback-banner.success { background: #d4edda; color: #155724; }
 
-        .btn-controls { margin-top: 8px; }
-        .btn-pause {
-            background: #6c757d;
-            color: white;
-            border: none;
-            padding: 9px;
-            font-size: 13px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: bold;
-            width: 100%;
-        }
-        .btn-pause.paused { background: #0275d8; }
-
+        /* Modal hiển thị kết quả */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0; width: 100%; height: 100%;
@@ -186,31 +129,16 @@
 <body>
 
     <div class="container">
-        <h2>⚡ Quét QR CCCD Đa Nền Tảng</h2>
-        <p class="subtitle">Tối ưu mượt mà cho cả iPhone và Android</p>
+        <h2>⚡ Quét QR CCCD Siêu Tốc</h2>
+        <p class="subtitle">Tự động nhận diện mượt mà trên iPhone và Android</p>
         
-        <div class="camera-wrapper">
-            <div class="video-container" id="videoContainer">
-                <video id="video" playsinline autoplay muted></video>
-            </div>
-            <div class="scan-guide-box"></div>
-        </div>
+        <!-- Khung quét camera chính hãng -->
+        <div id="reader"></div>
 
-        <div class="zoom-controls">
-            <button class="btn-zoom active" id="zoom1x" onclick="setZoom(1, this)">🔍 1x (Chuẩn)</button>
-            <button class="btn-zoom" id="zoom1.5x" onclick="setZoom(1.5, this)">🔍 1.5x (QR Nhỏ)</button>
-            <button class="btn-zoom" id="zoom2x" onclick="setZoom(2, this)">🔍 2x (Rất nhỏ)</button>
-        </div>
-
-        <canvas id="canvas"></canvas>
-
-        <div class="feedback-banner" id="feedback">Đang khởi động camera...</div>
-
-        <div class="btn-controls">
-            <button class="btn-pause" id="pauseBtn" onclick="togglePause()">⏸️ Tạm dừng Quét</button>
-        </div>
+        <div class="feedback-banner" id="feedback">Đang khởi động camera phần cứng...</div>
     </div>
 
+    <!-- Modal hiển thị kết quả -->
     <div class="modal-overlay" id="successModal">
         <div class="modal-box">
             <div class="icon-success">✓</div>
@@ -255,102 +183,16 @@
     </div>
 
     <script>
-        const video = document.getElementById('video');
-        const videoContainer = document.getElementById('videoContainer');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        const feedback = document.getElementById('feedback');
-        const pauseBtn = document.getElementById('pauseBtn');
-
-        let isPaused = false;
-        let isScanned = false;
-        let stream = null;
-        let currentZoom = 1;
-
+        let html5QrCode;
         let scannedData = { cccd: "", name: "", dob: "" };
+        const feedback = document.getElementById('feedback');
 
-        function setZoom(level, btnElement) {
-            currentZoom = level;
-            videoContainer.style.transform = `scale(${level})`;
-            document.querySelectorAll('.btn-zoom').forEach(btn => btn.classList.remove('active'));
-            btnElement.classList.add('active');
-        }
-
-        async function startCamera() {
-            try {
-                // Thiết lập cấu hình tương thích tốt nhất cho cả iOS Safari và Android Chrome
-                const constraints = {
-                    audio: false,
-                    video: {
-                        facingMode: "environment",
-                        width: { ideal: 1280 },
-                        height: { ideal: 720 }
-                    }
-                };
-
-                stream = await navigator.mediaDevices.getUserMedia(constraints);
-                video.srcObject = stream;
-                video.setAttribute("playsinline", true);
-                video.play();
-                requestAnimationFrame(tick);
-            } catch (err) {
-                feedback.className = "feedback-banner warning";
-                feedback.innerText = "❌ Không thể truy cập Camera. Vui lòng cấp quyền!";
-            }
-        }
-
-        function togglePause() {
-            isPaused = !isPaused;
-            if (isPaused) {
-                pauseBtn.innerText = "▶️ Tiếp tục Quét";
-                pauseBtn.classList.add("paused");
-                feedback.className = "feedback-banner";
-                feedback.innerText = "⏸️ Đã tạm dừng camera";
-            } else {
-                pauseBtn.innerText = "⏸️ Tạm dừng Quét";
-                pauseBtn.classList.remove("paused");
-                feedback.innerText = "Đang tìm mã QR...";
-            }
-        }
-
-        function tick() {
-            if (isScanned) return;
-
-            if (!isPaused && video.readyState === video.HAVE_ENOUGH_DATA) {
-                // THU NHỎ (DOWNSCALE) KÍCH THƯỚC XỬ LÝ XUỐNG 640x640 GIÚP MÁY YẾU VÀ IPHONE CHẠY CỰC KỲ MƯỢT
-                const targetSize = 640;
-                canvas.width = targetSize;
-                canvas.height = targetSize;
-
-                // Cắt phần trung tâm video để đưa vào canvas phân tích giúp tăng tốc nhận diện
-                let vW = video.videoWidth;
-                let vH = video.videoHeight;
-                let minDim = Math.min(vW, vH);
-                let startX = (vW - minDim) / 2;
-                let startY = (vH - minDim) / 2;
-
-                ctx.drawImage(video, startX, startY, minDim, minDim, 0, 0, targetSize, targetSize);
-
-                const imageData = ctx.getImageData(0, 0, targetSize, targetSize);
-                
-                // Nhận diện QR siêu tốc bằng jsQR trên kích thước tối ưu
-                const code = jsQR(imageData.data, imageData.width, imageData.height, {
-                    inversionAttempts: "dontInvert",
-                });
-
-                if (code && code.data) {
-                    onCodeDetected(code.data);
-                }
-            }
-
-            requestAnimationFrame(tick);
-        }
-
-        function onCodeDetected(qrText) {
-            const parts = qrText.split('|');
+        function onScanSuccess(decodedText, decodedResult) {
+            const parts = decodedText.split('|');
             if (parts.length >= 1 && parts[0].length >= 9) {
-                isScanned = true;
-                
+                // Dừng camera ngay lập tức khi quét trúng
+                html5QrCode.pause();
+
                 scannedData.cccd = parts[0].trim();
                 scannedData.name = parts.length >= 3 ? parts[2].trim() : '';
                 
@@ -367,6 +209,36 @@
                     document.getElementById('valDOB').innerText = scannedData.dob;
                     document.getElementById('successModal').style.display = 'flex';
                 });
+            }
+        }
+
+        function onScanFailure(error) {
+            // Lỗi quét từng khung hình liên tục (bỏ qua để không làm gián đoạn console)
+        }
+
+        async function startScanner() {
+            html5QrCode = new Html5Qrcode("reader", {
+                useBarCodeDetectorIfSupported: true // Kích hoạt phần cứng AI quét mã vạch gốc của điện thoại
+            });
+
+            const config = { 
+                fps: 15, 
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            };
+
+            try {
+                await html5QrCode.start(
+                    { facingMode: "environment" }, 
+                    config, 
+                    onScanSuccess, 
+                    onScanFailure
+                );
+                feedback.className = "feedback-banner success";
+                feedback.innerText = "✓ Camera sẵn sàng - Đưa mã QR vào khung";
+            } catch (err) {
+                feedback.className = "feedback-banner";
+                feedback.innerText = "❌ Không thể mở camera. Vui lòng cấp quyền!";
             }
         }
 
@@ -395,12 +267,12 @@
 
         function resetScanner() {
             document.getElementById('successModal').style.display = 'none';
-            isScanned = false;
-            feedback.className = "feedback-banner";
-            feedback.innerText = "Đang tìm mã QR...";
+            if (html5QrCode) {
+                html5QrCode.resume();
+            }
         }
 
-        window.addEventListener('DOMContentLoaded', startCamera);
+        window.addEventListener('DOMContentLoaded', startScanner);
     </script>
 </body>
 </html>
