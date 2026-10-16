@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f1a1c">
+<title>Quét CCCD · Android</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+:root{
+  --bg:#0f1a1c; --panel:#172528; --line:#25393d; --text:#e8f1f0; --mute:#8fa8a8;
+  --ok:#3ddc97; --warn:#ffb84d; --bad:#ff6b6b; --accent:#2fc4b2;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body{min-height:100vh;min-height:100dvh;display:flex;justify-content:center;
+  padding:env(safe-area-inset-top) 14px calc(env(safe-area-inset-bottom) + 18px)}
+main{width:100%;max-width:460px;padding-top:12px}
+h1{font-size:18px;font-weight:650;margin:2px 2px 10px;letter-spacing:.2px}
+
+/* Camera */
+.cam{position:relative;width:100%;aspect-ratio:1/1;border-radius:18px;overflow:hidden;
+  background:#000;border:2px solid var(--line);transition:border-color .2s}
+.cam video{width:100%;height:100%;object-fit:cover;display:block}
+.cam canvas{display:none}
+.frame{position:absolute;inset:18%;pointer-events:none;border-radius:10px;
+  --c:rgba(255,255,255,.85);
+  background:
+   linear-gradient(var(--c),var(--c)) top left/22px 3px,
+   linear-gradient(var(--c),var(--c)) top left/3px 22px,
+   linear-gradient(var(--c),var(--c)) top right/22px 3px,
+   linear-gradient(var(--c),var(--c)) top right/3px 22px,
+   linear-gradient(var(--c),var(--c)) bottom left/22px 3px,
+   linear-gradient(var(--c),var(--c)) bottom left/3px 22px,
+   linear-gradient(var(--c),var(--c)) bottom right/22px 3px,
+   linear-gradient(var(--c),var(--c)) bottom right/3px 22px;
+  background-repeat:no-repeat}
+.cam.warn{border-color:var(--warn)} .cam.warn .frame{--c:var(--warn)}
+.cam.bad{border-color:var(--bad)}  .cam.bad .frame{--c:var(--bad)}
+.cam.ok{border-color:var(--ok)}    .cam.ok .frame{--c:var(--ok)}
+.cam-tools{position:absolute;right:10px;top:10px;display:flex;gap:8px}
+.cam-tools button{border:0;border-radius:999px;background:rgba(0,0,0,.55);color:#fff;
+  padding:8px 12px;font-size:13px;display:none}
+.cam-tools button.on{background:var(--warn);color:#000}
+.start{position:absolute;inset:0;display:none;flex-direction:column;gap:10px;
+  align-items:center;justify-content:center;text-align:center;padding:24px;
+  background:rgba(15,26,28,.92);font-size:14px;color:var(--mute)}
+.start button{border:0;border-radius:12px;background:var(--accent);color:#04201c;
+  font-weight:700;font-size:16px;padding:12px 22px}
+
+/* Hint */
+.hint{margin:10px 0 14px;padding:11px 14px;border-radius:12px;background:var(--panel);
+  border-left:4px solid var(--mute);font-size:15px;line-height:1.35;min-height:46px}
+.hint.warn{border-color:var(--warn)} .hint.bad{border-color:var(--bad)} .hint.ok{border-color:var(--ok)}
+
+/* Results */
+.rows{display:flex;flex-direction:column;gap:8px}
+.row{display:flex;align-items:center;gap:10px;background:var(--panel);
+  border:1px solid var(--line);border-radius:12px;padding:8px 8px 8px 14px}
+.row .lab{font-size:12px;color:var(--mute)}
+.row .val{font-size:18px;font-weight:600;margin-top:1px;word-break:break-word;min-height:24px}
+.row .val.empty{color:#4d6567;font-weight:400}
+.row .txt{flex:1;min-width:0}
+.copy{flex:none;border:1px solid var(--line);background:#1e3236;color:var(--text);
+  border-radius:10px;padding:10px 14px;font-size:14px;min-width:84px}
+.copy:disabled{opacity:.35}
+.copy.done{background:var(--ok);color:#04201c;border-color:var(--ok)}
+
+/* Actions */
+.acts{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.act{display:flex;align-items:center;justify-content:space-between;text-decoration:none;
+  color:var(--text);background:var(--accent);color:#04201c;font-weight:700;font-size:17px;
+  border:0;border-radius:12px;padding:15px 16px;width:100%;text-align:left}
+.act.sec{background:#e9c46a}
+.act.ghost{background:transparent;color:var(--text);border:1px solid var(--line);font-weight:600}
+.act:active{transform:scale(.99)}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 24px);
+  transform:translateX(-50%) translateY(20px);background:#000c;color:#fff;border-radius:999px;
+  padding:9px 16px;font-size:14px;opacity:0;pointer-events:none;transition:.2s}
+.toast.show{opacity:1;transform:translateX(-50%)}
+.top{display:flex;justify-content:space-between;align-items:center}
+.back{color:var(--mute);font-size:14px;text-decoration:none;padding:6px 2px}
+.res{position:absolute;left:10px;bottom:8px;font-size:11px;color:#fff9;pointer-events:none}
+</style>
+</head>
+<body>
+<main>
+  <div class="top"><h1>Quét QR CCCD · Android</h1><a class="back" href="index.html">Đổi máy</a></div>
+
+  <div class="cam" id="cam">
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="work"></canvas>
+    <div class="frame"></div>
+    <div class="cam-tools"><button id="torch">Đèn</button></div>
+    <div class="start" id="start">
+      <div id="startMsg">Cho phép truy cập camera để quét mã QR trên CCCD.</div>
+      <button id="startBtn">Bật camera</button>
+    </div>
+  </div>
+
+  <div class="hint" id="hint">Đang khởi động camera…</div>
+
+  <div class="rows">
+    <div class="row">
+      <div class="txt"><div class="lab">Số CCCD</div><div class="val empty" id="v-id">—</div></div>
+      <button class="copy" data-t="v-id" disabled>Sao chép</button>
+    </div>
+    <div class="row">
+      <div class="txt"><div class="lab">Họ và tên</div><div class="val empty" id="v-name">—</div></div>
+      <button class="copy" data-t="v-name" disabled>Sao chép</button>
+    </div>
+    <div class="row">
+      <div class="txt"><div class="lab">Ngày tháng năm sinh</div><div class="val empty" id="v-dob">—</div></div>
+      <button class="copy" data-t="v-dob" disabled>Sao chép</button>
+    </div>
+  </div>
+
+  <div class="acts">
+    <a class="act" id="a-quick" target="_blank" rel="noopener"
+       href="https://quanlyskcd.medinet.org.vn/app/main/dynamicreport/report/viewer-utility/KSKNCT_KiemTraNhanh_M11">
+      <span>Tra cứu nhanh</span><span>›</span></a>
+    <a class="act sec" id="a-bhyt" target="_blank" rel="noopener"
+       href="https://baohiemxahoi.gov.vn/tracuu/Pages/tra-cuu-thoi-han-su-dung-the-bhyt.aspx">
+      <span>Tra cứu BHYT</span><span>›</span></a>
+    <button class="act ghost" id="redo"><span>Làm lại</span><span>↻</span></button>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const video = $('video'), work = $('work'), ctx = work.getContext('2d', { willReadFrequently: true });
+  const cam = $('cam'), hint = $('hint'), toastEl = $('toast');
+  const small = document.createElement('canvas'); small.width = small.height = 32;
+  const sctx = small.getContext('2d', { willReadFrequently: true });
+
+  let stream = null, track = null, detector = null, scanning = false, busy = false;
+  let lastScan = 0, lastLum = 0, lum = 128, lastSeenQR = 0, lastInvalid = 0, startedAt = 0, current = null;
+
+  try { if ('BarcodeDetector' in window) detector = new BarcodeDetector({ formats: ['qr_code'] }); } catch (e) { detector = null; }
+
+  function setHint(msg, level) {
+    hint.textContent = msg; hint.className = 'hint ' + (level || '');
+    cam.className = 'cam ' + (level || '');
+  }
+  function toast(msg) {
+    toastEl.textContent = msg; toastEl.classList.add('show');
+    clearTimeout(toast.t); toast.t = setTimeout(() => toastEl.classList.remove('show'), 1400);
+  }
+
+  /* ---------- Camera ---------- */
+  async function startCamera() {
+    $('start').style.display = 'none';
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.isSecureContext) {
+      return showStart('Cần mở bằng đường dẫn HTTPS (ví dụ GitHub Pages) để dùng camera.');
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+    } catch (e) {
+      const denied = e && (e.name === 'NotAllowedError' || e.name === 'SecurityError');
+      return showStart(denied ? 'Chưa được cấp quyền camera. Cho phép camera cho trang này trong cài đặt Chrome rồi bấm lại.'
+                              : 'Không mở được camera: ' + (e && e.message || e));
+    }
+    track = stream.getVideoTracks()[0];
+    video.srcObject = stream;
+    try { await video.play(); } catch (e) {}
+    try {
+      const caps = track.getCapabilities ? track.getCapabilities() : {};
+      if (caps.focusMode && caps.focusMode.includes('continuous'))
+        await track.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+      if (caps.torch) $('torch').style.display = 'block';
+    } catch (e) {}
+    startedAt = performance.now();
+    resumeScan();
+  }
+  function showStart(msg) {
+    $('startMsg').textContent = msg; $('start').style.display = 'flex';
+    setHint('Camera chưa sẵn sàng', 'bad');
+  }
+  $('startBtn').onclick = startCamera;
+
+  let torchOn = false;
+  $('torch').onclick = async () => {
+    try {
+      torchOn = !torchOn;
+      await track.applyConstraints({ advanced: [{ torch: torchOn }] });
+      $('torch').classList.toggle('on', torchOn);
+    } catch (e) { torchOn = false; }
+  };
+
+  /* ---------- Scan loop ---------- */
+  function resumeScan() {
+    current = null; scanning = true; lastSeenQR = 0; startedAt = performance.now();
+    video.play().catch(() => {});
+    setHint('Đưa mã QR trên CCCD vào khung', '');
+    requestAnimationFrame(tick);
+  }
+
+  function measureLight(t) {
+    if (t - lastLum < 300) return;
+    lastLum = t;
+    try {
+      sctx.drawImage(video, 0, 0, 32, 32);
+      const d = sctx.getImageData(0, 0, 32, 32).data; let s = 0;
+      for (let i = 0; i < d.length; i += 4) s += d[i] * .299 + d[i + 1] * .587 + d[i + 2] * .114;
+      lum = s / (d.length / 4);
+    } catch (e) {}
+  }
+
+  async function detect() {
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw) return null;
+    if (detector) {
+      try {
+        const r = await detector.detect(video);
+        if (r && r.length) {
+          const p = r[0].cornerPoints || [];
+          let w = 0;
+          if (p.length === 4) w = Math.max(Math.hypot(p[1].x - p[0].x, p[1].y - p[0].y), Math.hypot(p[2].x - p[1].x, p[2].y - p[1].y));
+          return { text: r[0].rawValue, ratio: w / Math.min(vw, vh) };
+        }
+        return null;
+      } catch (e) { detector = null; }
+    }
+    if (typeof jsQR !== 'function') return null;
+    const w = Math.min(vw, 960), h = Math.round(vh * w / vw);
+    if (work.width !== w) { work.width = w; work.height = h; }
+    ctx.drawImage(video, 0, 0, w, h);
+    const img = ctx.getImageData(0, 0, w, h);
+    const r = jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
+    if (!r) return null;
+    const L = r.location;
+    const qw = Math.max(Math.hypot(L.topRightCorner.x - L.topLeftCorner.x, L.topRightCorner.y - L.topLeftCorner.y),
+                        Math.hypot(L.bottomRightCorner.x - L.topRightCorner.x, L.bottomRightCorner.y - L.topRightCorner.y));
+    let text = r.data;
+    try { if (r.binaryData) text = new TextDecoder('utf-8').decode(Uint8Array.from(r.binaryData)); } catch (e) {}
+    return { text, ratio: qw / Math.min(w, h) };
+  }
+
+  async function tick(t) {
+    if (!scanning) return;
+    requestAnimationFrame(tick);
+    if (busy || video.readyState < 2) return;
+    if (t - lastScan < (detector ? 50 : 80)) return;
+    lastScan = t; busy = true;
+    try {
+      measureLight(t);
+      const r = await detect();
+      if (!scanning) return;
+      if (r && r.text) handleQR(r, t); else idleHint(t);
+    } catch (e) {} finally { busy = false; }
+  }
+
+  function idleHint(t) {
+    if (t - lastSeenQR < 700 && lastSeenQR) return;
+    if (lum < 55) return setHint('Quá tối — bật đèn hoặc di chuyển ra chỗ sáng hơn', 'bad');
+    if (lum > 215) return setHint('Quá sáng/chói — nghiêng thẻ để tránh phản chiếu', 'warn');
+    if (t - startedAt > 3000) return setHint('Chưa thấy mã QR — giữ thẻ cách camera khoảng 10–20 cm, giữ chắc tay', 'warn');
+    setHint('Đưa mã QR trên CCCD vào khung', '');
+  }
+
+  function handleQR(r, t) {
+    const data = parseCCCD(r.text);
+    if (!data) {
+      lastSeenQR = t;
+      if (t - lastInvalid > 1500) { lastInvalid = t; setHint('Mã QR này không phải QR của CCCD', 'warn'); }
+      return;
+    }
+    if (r.ratio && r.ratio < 0.12) { lastSeenQR = t; return setHint('Đưa thẻ lại gần hơn', 'warn'); }
+    if (r.ratio > 0.85) { lastSeenQR = t; return setHint('Đưa thẻ ra xa hơn một chút', 'warn'); }
+    success(data);
+  }
+
+  /* ---------- Parse ---------- */
+  function parseCCCD(text) {
+    const p = String(text).split('|').map(s => s.trim());
+    if (p.length < 4 || !/^\d{9,12}$/.test(p[0])) return null;
+    let dob = p[3];
+    if (/^\d{8}$/.test(dob)) dob = dob.slice(0, 2) + '/' + dob.slice(2, 4) + '/' + dob.slice(4);
+    return { id: p[0], name: p[2], dob };
+  }
+
+  function success(d) {
+    scanning = false; current = d;
+    video.pause();
+    set('v-id', d.id); set('v-name', d.name); set('v-dob', d.dob);
+    document.querySelectorAll('.copy').forEach(b => b.disabled = false);
+    setHint('Đã quét xong — bấm Sao chép hoặc Tra cứu', 'ok');
+    try { navigator.vibrate && navigator.vibrate(80); } catch (e) {}
+    beep();
+  }
+  function set(id, v) { const e = $(id); e.textContent = v || '—'; e.classList.toggle('empty', !v); }
+
+  let ac;
+  function beep() {
+    try {
+      ac = ac || new (window.AudioContext || window.webkitAudioContext)();
+      const o = ac.createOscillator(), g = ac.createGain();
+      o.frequency.value = 1100; g.gain.value = .08; o.connect(g); g.connect(ac.destination);
+      o.start(); o.stop(ac.currentTime + .09);
+    } catch (e) {}
+  }
+
+  /* ---------- Copy ---------- */
+  async function copyText(s) {
+    try { await navigator.clipboard.writeText(s); return true; }
+    catch (e) {
+      const ta = document.createElement('textarea'); ta.value = s; ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta); ta.select();
+      let ok = false; try { ok = document.execCommand('copy'); } catch (_) {}
+      ta.remove(); return ok;
+    }
+  }
+  document.querySelectorAll('.copy').forEach(b => b.onclick = async () => {
+    const v = $(b.dataset.t).textContent;
+    if (!v || v === '—') return;
+    if (await copyText(v)) {
+      b.textContent = 'Đã chép'; b.classList.add('done');
+      setTimeout(() => { b.textContent = 'Sao chép'; b.classList.remove('done'); }, 1200);
+    } else toast('Không sao chép được');
+  });
+
+  /* ---------- Actions ---------- */
+  ['a-quick', 'a-bhyt'].forEach(id => $(id).addEventListener('click', () => {
+    if (current) { copyText(current.id); }   // tự chép số CCCD để dán nhanh ở trang tra cứu
+  }));
+
+  $('redo').onclick = () => {
+    set('v-id', ''); set('v-name', ''); set('v-dob', '');
+    document.querySelectorAll('.copy').forEach(b => b.disabled = true);
+    if (stream) resumeScan(); else startCamera();
+  };
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { scanning = false; }
+    else if (stream && !current) { resumeScan(); }
+  });
+
+  startCamera();
+})();
+</script>
+</body>
+</html>
